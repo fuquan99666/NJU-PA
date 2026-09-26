@@ -18,6 +18,7 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 #include "sdb.h"
+#include <memory/vaddr.h>
 
 static int is_batch_mode = false;
 
@@ -55,6 +56,14 @@ static int cmd_q(char *args) {
 
 static int cmd_help(char *args);
 
+// For PA1 , we need to add step , x , info r 
+
+static int cmd_si(char *args);
+
+static int cmd_info(char *args);
+
+static int cmd_x(char *args);
+
 static struct {
   const char *name;
   const char *description;
@@ -65,6 +74,10 @@ static struct {
   { "q", "Exit NEMU", cmd_q },
 
   /* TODO: Add more commands */
+
+  { "si", "Step through the program for N instructions", cmd_si },
+  { "info", "Print register state or watchpoint information", cmd_info },
+  { "x", "Print the value of an address in memory for N 4 bytes (the address is given by an expression)", cmd_x },
 
 };
 
@@ -90,6 +103,98 @@ static int cmd_help(char *args) {
     }
     printf("Unknown command '%s'\n", arg);
   }
+  return 0;
+}
+
+// si [N] : Step through the program for N instructions (default 1)
+static int cmd_si(char *args) {
+  int n = 1;
+  
+  // use strtok to parse the N
+  char *arg = strtok(args, " ");
+
+  if (arg != NULL) {
+    int ret = sscanf(arg, "%d", &n);
+    if (ret != 1) {
+      fprintf(stderr, "Invalid argument for si command: %s\n", arg);
+      return 0;
+    }
+  } 
+  cpu_exec(n);
+  return 0;
+}
+
+// info r : Print register state 
+static int cmd_info(char *args) {
+  char *arg = strtok(args, " ");
+  if (arg == NULL) {
+    fprintf(stderr, "Missing argument for info command\n");
+    return 0;
+  } else if (strcmp(arg, "r") == 0) {
+    isa_reg_display();
+  } else if (strcmp(arg, "w") == 0) {
+    return 0;
+  } else {
+    fprintf(stderr, "Unknown argument for info command: %s\n", arg);
+  }
+  return 0;
+}
+
+// x N EXPR : Print the value of an address in memory for N 4 bytes (the address is given by an expression)
+static int cmd_x(char *args) {
+  // now we assume the EXP is just a hex number, we will implement the expression parser later
+  char *arg = strtok(args, " ");
+
+  if (arg == NULL) {
+    fprintf(stderr, "Missing N argument for x command\n");
+    return 0;
+  }
+
+  int n ;
+  int ret = sscanf(arg, "%d", &n);
+
+  if (ret != 1) {
+    fprintf(stderr, "Invalid N argument for x command: %s\n", arg);
+    return 0;
+  }
+
+  char *expr = strtok(NULL, " ");
+  if (expr == NULL) {
+    fprintf(stderr, "Missing expression argument for x command\n");
+    return 0;
+  }
+
+  // we assume the expression is just a hex number 
+  int addr;
+  ret = sscanf(expr, "%x", &addr);
+  if (ret != 1) {
+    fprintf(stderr, "Invalid expression argument for x command: %s\n", expr);
+    return 0;
+  }
+
+  int left = n % 4;
+
+  for (int i = 0; i < n/4; i+=1) {
+    // read 4 bytes from memory 
+    word_t val_0 = vaddr_read(addr + i * 16, 4);
+    printf("0x%08x: 0x%08x  ", addr + i * 16, val_0);
+    word_t val_1 = vaddr_read(addr + i * 16 + 4, 4);
+    printf("0x%08x: 0x%08x  ", addr + i * 16 + 4, val_1);
+    word_t val_2 = vaddr_read(addr + i * 16 + 8, 4);
+    printf("0x%08x: 0x%08x  ", addr + i * 16 + 8, val_2);
+    word_t val_3 = vaddr_read(addr + i * 16 + 12, 4);
+    printf("0x%08x: 0x%08x\n", addr + i * 16 + 12, val_3);
+  }
+
+  // print the left bytes if n is not a multiple of 4
+  if (left > 0) {
+    for (int i = 0; i < left; i++) {
+      word_t val = vaddr_read(addr + (n - left + i) * 4, 4);
+      printf("0x%08x: 0x%08x  ", addr + (n - left + i) * 4, val);
+    }
+    printf("\n");
+  }
+
   return 0;
 }
 
