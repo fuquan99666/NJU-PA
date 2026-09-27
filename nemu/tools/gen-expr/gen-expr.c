@@ -22,6 +22,9 @@
 
 // this should be enough
 static char buf[65536] = {};
+static char buf_unsigned[65536] = {};
+int pos = 0;
+int pos_unsigned = 0;
 static char code_buf[65536 + 128] = {}; // a little larger than `buf`
 static char *code_format =
 "#include <stdio.h>\n"
@@ -31,8 +34,57 @@ static char *code_format =
 "  return 0; "
 "}";
 
+int choose(int n) {
+  return rand() % n; // [0, ..., n-1]
+}
+
+void gen_num() {
+  uint32_t num = choose(500); // 先小一点
+  pos += sprintf(buf + pos, "%u", num);
+  pos_unsigned += sprintf(buf_unsigned + pos_unsigned, "%uu", num);
+}
+
+void gen(char c) {
+  buf[pos++] = c;
+  buf_unsigned[pos_unsigned++] = c;
+}
+
+void gen_rand_op() {
+  switch (choose(4))
+  {
+  case 0: gen('+'); break;
+  case 1: gen('-'); break;
+  case 2: gen('*'); break;
+  case 3: gen('/'); break;
+  default: assert(0);
+    break;
+  }
+}
+
 static void gen_rand_expr() {
-  buf[0] = '\0';
+  int flag = choose(3);
+  if (pos > 32) {
+    // too long, just generate a number
+    flag = 0;
+  }
+  switch (flag)
+  {
+  case 0:
+    gen_num();
+    break;
+  case 1:
+    gen('('); gen_rand_expr(); gen(')');
+    break;
+  case 2:
+    gen_rand_expr(); gen_rand_op(); gen_rand_expr();
+    break;
+  default:
+    assert(0);
+    break;
+  }
+  // add '\0' 
+  buf[pos] = '\0';
+  buf_unsigned[pos_unsigned] = '\0';
 }
 
 int main(int argc, char *argv[]) {
@@ -44,9 +96,11 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i ++) {
+    pos = 0;
+    pos_unsigned = 0;
     gen_rand_expr();
 
-    sprintf(code_buf, code_format, buf);
+    sprintf(code_buf, code_format, buf_unsigned);
 
     FILE *fp = fopen("/tmp/.code.c", "w");
     assert(fp != NULL);
