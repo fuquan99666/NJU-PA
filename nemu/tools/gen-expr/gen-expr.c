@@ -22,9 +22,12 @@
 
 // this should be enough
 static char buf[65536] = {};
+
+// to make sure the expression is evaluated as unsigned, we add 'u' to the end of the number
 static char buf_unsigned[65536] = {};
 int pos = 0;
 int pos_unsigned = 0;
+
 static char code_buf[65536 + 128] = {}; // a little larger than `buf`
 static char *code_format =
 "#include <stdio.h>\n"
@@ -115,7 +118,12 @@ int main(int argc, char *argv[]) {
 
     int result;
     ret = fscanf(fp, "%d", &result);
-    pclose(fp);
+    
+    if (ret != 1) {
+      // normally this happens when divide by zero in the expression ...
+      fprintf(stderr, "No result is obtained from the expression: %s\n", buf);
+      continue;
+    }
 
     printf("%u %s\n", result, buf);
   }
