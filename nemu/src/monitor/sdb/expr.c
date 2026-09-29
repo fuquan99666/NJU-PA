@@ -20,11 +20,14 @@
  */
 #include <regex.h>
 
+extern word_t vaddr_read(vaddr_t addr, int len);
+
 enum {
   TK_NOTYPE = 256, TK_EQ,
 
   /* TODO: Add more token types */
-	TK_NUMBER,
+	TK_NUMBER, TK_NEG, TK_NEQ, AND, DERER,
+  TK_HEX, TK_REG
 
 };
 
@@ -40,6 +43,8 @@ static struct rule {
   {" +", TK_NOTYPE},    // spaces
   {"\\+", '+'},         // plus
   {"==", TK_EQ},        // equal
+	{"!=", TK_NEQ},       // not equal
+  {"&&", AND},          // and
 	{"-", '-'},      		// sub
 	{"\\*", '*'},					// mul
 	{"/", '/'},					// divide
@@ -47,6 +52,8 @@ static struct rule {
 	{",", ','},						// ,
 	{"\\)", ')'},					// )
 	{"[0-9]+", TK_NUMBER}, // a decimal number 
+  {"0[xX][0-9a-fA-F]+", TK_HEX}, // a hex number 
+  {"\\$[a-zA-Z0-9]*", TK_REG}, // a register name
 	
 };
 
@@ -76,7 +83,7 @@ typedef struct token {
   char str[32];
 } Token;
 
-static Token tokens[64] __attribute__((used)) = {};
+static Token tokens[256] __attribute__((used)) = {};
 static int nr_token __attribute__((used))  = 0;
 
 static bool make_token(char *e) {
@@ -147,7 +154,34 @@ static bool make_token(char *e) {
             tokens[nr_token].str[substr_len] = '\0';
             nr_token ++;
             break;
-
+          case TK_HEX:
+            tokens[nr_token].type = TK_HEX;
+            Assert(substr_len < 32, "Hex token is too long than 32");
+            strncpy(tokens[nr_token].str, substr_start, substr_len);
+            tokens[nr_token].str[substr_len] = '\0';
+            nr_token ++;
+            break;
+          case TK_NEQ:
+            tokens[nr_token].type = TK_NEQ;
+            tokens[nr_token].str[0] = '!';
+            tokens[nr_token].str[1] = '=';
+            tokens[nr_token].str[2] = '\0';
+            nr_token ++;
+            break;
+          case AND:
+            tokens[nr_token].type = AND;
+            tokens[nr_token].str[0] = '&';
+            tokens[nr_token].str[1] = '&';
+            tokens[nr_token].str[2] = '\0';
+            nr_token ++;
+            break;
+          case TK_REG:
+            tokens[nr_token].type = TK_REG;
+            Assert(substr_len < 32, "Register token is too long than 32");
+            strncpy(tokens[nr_token].str, substr_start, substr_len);
+            tokens[nr_token].str[substr_len] = '\0';
+            nr_token ++;
+            break;
           default: 
             fprintf(stderr, "Unknown token type: %d\n", rules[i].token_type);
             break;
@@ -212,6 +246,7 @@ int find_main_operator(int p, int q) {
     case ')':
       left--;
       break;
+    case TK_NEQ:
     case TK_EQ:
       if (left == 0 && main_op_adv <= 0) {
         main_op = i;
@@ -232,6 +267,13 @@ int find_main_operator(int p, int q) {
         main_op_adv = 2;
         break;
       }
+    case AND:
+      if (left == 0 && (main_op_adv == -1 || main_op_adv == 3)) {
+        main_op = i;
+        main_op_adv = 3;
+        break;
+      }
+
     default:
       // e.g. number, we just ignore it 
       break;
@@ -241,19 +283,54 @@ int find_main_operator(int p, int q) {
   return main_op;
 }
 
+bool is_single_operator(int p) {
+  int op = tokens[p].type;
+  if (op == TK_NEG || op == DERER) {
+    return true;
+  }
+  return false;
+}
+
 // eval the child expression of tokens[p..q] and return its value 
 word_t eval(int p, int q) {
   if (p > q) {
     // a bad expression
     Assert(0, "Bad expression");
   } else if (p == q) {
-    // a single token
-    // it must be a number 
-    Assert(tokens[p].type == TK_NUMBER, "Single token is not a number");
-    return (word_t)atoi(tokens[p].str);
+    // a single token, e.g. a number or a register
+    switch (tokens[p].type)
+    {
+    case TK_NUMBER:
+      return (word_t)atoi(tokens[p].str);
+      break;
+    case TK_REG:
+      bool success;
+      word_t val = isa_reg_str2val(tokens[p].str + 1, &success);
+      Assert(success, "Invalid register name: %s", tokens[p].str);
+      return val;
+      break;
+    case TK_HEX:
+      return (word_t)strtoul(tokens[p].str, NULL, 16);
+      break;
+    
+    default:
+      Assert(0, "Unknown token type: %c", tokens[p].type);
+    }
   } else if (check_parentheses(p, q) == true) {
     // the expression is surrounded by a matched pair of parentheses
     return eval(p + 1, q - 1);
+  } else if (is_single_operator(p)) {
+    // p is a single operator, e.g. -1, *0x1000
+    word_t val = eval(p + 1, q);
+    switch (tokens[p].type)
+    {
+    case TK_NEG:
+      return -val;
+    case DERER:
+      return vaddr_read(val, 4);
+    default:
+      Assert(0, "Unknown single operator: %c", tokens[p].type);
+    }
   } else {
     // we should find the main operator in the expression 
     int op = find_main_operator(p, q);
@@ -283,6 +360,21 @@ word_t expr(char *e, bool *success) {
   if (!make_token(e)) {
     *success = false;
     return 0;
+  }
+
+  // Well, before we evaluate the expression, we need to fix some token's type 
+  // for example, '-' can be a negative sign or a subtraction operator, we need to distinguish them
+  for (int i = 0; i < nr_token; i++) {
+    if (tokens[i].type == '-' && (i == 0 || (tokens[i - 1].type != TK_NUMBER && tokens[i - 1].type != ')'))) {
+      // this '-' is a negative sign 
+      tokens[i].type = TK_NEG;
+    }
+
+    // for more operators, e.g. '*' 
+    if (tokens[i].type == '*' && (i == 0 || (tokens[i - 1].type != TK_NUMBER && tokens[i - 1].type != ')'))) {
+      // this '*' is a dereference operator 
+      tokens[i].type = DERER;
+    }
   }
 
   /* TODO: Insert codes to evaluate the expression. */

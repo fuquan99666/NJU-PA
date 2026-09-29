@@ -42,7 +42,7 @@ int choose(int n) {
 }
 
 void gen_num() {
-  uint32_t num = choose(500); // 先小一点
+  uint32_t num = choose(1000); // 先小一点
   pos += sprintf(buf + pos, "%u", num);
   pos_unsigned += sprintf(buf_unsigned + pos_unsigned, "%uu", num);
 }
@@ -66,7 +66,7 @@ void gen_rand_op() {
 
 static void gen_rand_expr() {
   int flag = choose(3);
-  if (pos > 32) {
+  if (pos > 64) {
     // too long, just generate a number
     flag = 0;
   }
