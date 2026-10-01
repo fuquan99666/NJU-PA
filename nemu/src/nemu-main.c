@@ -30,45 +30,45 @@ int main(int argc, char *argv[]) {
   init_monitor(argc, argv);
 #endif
 
-  // PA1 stage 2 : read the expression and result from nemu/tools/gen-expr/input 
-  // use expr() to evaluate the expression and compare the result with the expected result 
+  //// PA1 stage 2 : read the expression and result from nemu/tools/gen-expr/input 
+  //// use expr() to evaluate the expression and compare the result with the expected result 
 
-  char *input_file = "/home/zz/Code/ics2026/nemu/tools/gen-expr/input";
+  //char *input_file = "/home/zz/Code/ics2026/nemu/tools/gen-expr/input";
 
-  FILE *fp = fopen(input_file, "r");
-  if (fp == NULL) {
-    fprintf(stderr, "Failed to open input file: %s\n", input_file);
-    return 1;
-  }
+  //FILE *fp = fopen(input_file, "r");
+  //if (fp == NULL) {
+    //fprintf(stderr, "Failed to open input file: %s\n", input_file);
+    //return 1;
+  //}
 
-  // read line by line 
-  char line[256];
-  uint32_t expected_result;
-  char expression[64];
-  while (fgets(line, sizeof(line), fp) != NULL) {
-    // format : result expression 
-    sscanf(line, "%u %[^\n]", &expected_result, expression);
+  //// read line by line 
+  //char line[256];
+  //uint32_t expected_result;
+  //char expression[64];
+  //while (fgets(line, sizeof(line), fp) != NULL) {
+    //// format : result expression 
+    //sscanf(line, "%u %[^\n]", &expected_result, expression);
 
-    bool success = true;
-    uint32_t eval_result = expr(expression, &success);
-    if (!success) {
-      fprintf(stderr, "Failed to evaluate expression: %s\n", expression);
-      return 1;
-    }
-    if (eval_result != expected_result) {
-      fprintf(stderr, "Mismatch: expected %u, got %u for expression: %s\n", expected_result, eval_result, expression);
-      return 1;
-    } else {
-      printf("GG!\n");
-    }
-  }
+    //bool success = true;
+    //uint32_t eval_result = expr(expression, &success);
+    //if (!success) {
+      //fprintf(stderr, "Failed to evaluate expression: %s\n", expression);
+      //return 1;
+    //}
+    //if (eval_result != expected_result) {
+      //fprintf(stderr, "Mismatch: expected %u, got %u for expression: %s\n", expected_result, eval_result, expression);
+      //return 1;
+    //} else {
+      //printf("GG!\n");
+    //}
+  //}
 
-  fclose(fp);
-  return 0;
+  //fclose(fp);
+  //return 0;
 
 
   /* Start engine. */
-  // engine_start();
+  engine_start();
 
   return is_exit_status_bad();
 }

@@ -51,8 +51,8 @@ static struct rule {
 	{"\\(", '('}, 				// (
 	{",", ','},						// ,
 	{"\\)", ')'},					// )
-	{"[0-9]+", TK_NUMBER}, // a decimal number 
   {"0[xX][0-9a-fA-F]+", TK_HEX}, // a hex number 
+	{"[0-9]+", TK_NUMBER}, // a decimal number 
   {"\\$[a-zA-Z0-9]*", TK_REG}, // a register name
 	
 };
@@ -111,6 +111,7 @@ static bool make_token(char *e) {
          */
 
         switch (rules[i].token_type) {
+          case TK_NOTYPE: break;
 					case TK_EQ:  
             tokens[nr_token].type = TK_EQ;
             tokens[nr_token].str[0] = '=';
@@ -293,6 +294,9 @@ bool is_single_operator(int p) {
 
 // eval the child expression of tokens[p..q] and return its value 
 word_t eval(int p, int q) {
+
+  int op;
+
   if (p > q) {
     // a bad expression
     Assert(0, "Bad expression");
@@ -319,21 +323,8 @@ word_t eval(int p, int q) {
   } else if (check_parentheses(p, q) == true) {
     // the expression is surrounded by a matched pair of parentheses
     return eval(p + 1, q - 1);
-  } else if (is_single_operator(p)) {
-    // p is a single operator, e.g. -1, *0x1000
-    word_t val = eval(p + 1, q);
-    switch (tokens[p].type)
-    {
-    case TK_NEG:
-      return -val;
-    case DERER:
-      return vaddr_read(val, 4);
-    default:
-      Assert(0, "Unknown single operator: %c", tokens[p].type);
-    }
-  } else {
+  } else if ((op = find_main_operator(p, q)) != -1) {
     // we should find the main operator in the expression 
-    int op = find_main_operator(p, q);
     word_t val1 = eval(p, op - 1);
     word_t val2 = eval(op + 1, q);
 
@@ -350,13 +341,34 @@ word_t eval(int p, int q) {
       return val1 / val2;
     case TK_EQ:
       return val1 == val2;
+    case TK_NEQ:
+      return val1 != val2;
+    case AND:
+      return val1 && val2;
     default:
       Assert(0, "Unknown operator: %c", tokens[op].type);
     }
+  } else if (is_single_operator(p)) {
+    // p is a single operator, e.g. -1, *0x1000
+    word_t val = eval(p + 1, q);
+    switch (tokens[p].type)
+    {
+    case TK_NEG:
+      return -val;
+    case DERER:
+      return vaddr_read(val, 4);
+    default:
+      Assert(0, "Unknown single operator: %c", tokens[p].type);
+    }
+  } else {
+    Assert(0, "Unknown expression");
   }
 }
 
 word_t expr(char *e, bool *success) {
+
+  *success = true;
+
   if (!make_token(e)) {
     *success = false;
     return 0;
@@ -365,13 +377,13 @@ word_t expr(char *e, bool *success) {
   // Well, before we evaluate the expression, we need to fix some token's type 
   // for example, '-' can be a negative sign or a subtraction operator, we need to distinguish them
   for (int i = 0; i < nr_token; i++) {
-    if (tokens[i].type == '-' && (i == 0 || (tokens[i - 1].type != TK_NUMBER && tokens[i - 1].type != ')'))) {
+    if (tokens[i].type == '-' && (i == 0 || tokens[i - 1].type == '+' || tokens[i - 1].type == '-' || tokens[i - 1].type == '*' || tokens[i - 1].type == '/' || tokens[i - 1].type == '(')) {
       // this '-' is a negative sign 
       tokens[i].type = TK_NEG;
     }
 
     // for more operators, e.g. '*' 
-    if (tokens[i].type == '*' && (i == 0 || (tokens[i - 1].type != TK_NUMBER && tokens[i - 1].type != ')'))) {
+    if (tokens[i].type == '*' && (i == 0 || tokens[i - 1].type == '+' || tokens[i - 1].type == '-' || tokens[i - 1].type == '*' || tokens[i - 1].type == '/' || tokens[i - 1].type == '(')) {
       // this '*' is a dereference operator 
       tokens[i].type = DERER;
     }

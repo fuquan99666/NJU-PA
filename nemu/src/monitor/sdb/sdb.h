@@ -20,4 +20,27 @@
 
 word_t expr(char *e, bool *success);
 
+#define NR_WP 32
+
+typedef struct watchpoint {
+  int NO; // the index of this watchpoint in the watchpoint pool
+  struct watchpoint *next;
+
+  /* TODO: Add more members if necessary */
+
+  char expr[32]; // the expression to watch
+  word_t last_value; // the last value of the expression, used to detect changes faster
+
+} WP;
+
+__attribute__((unused)) static WP wp_pool[NR_WP] = {};
+__attribute__((unused)) static WP *head = NULL, *free_ = NULL;
+
+WP* new_wp();
+void free_wp(WP* wp);
+void init_wp_pool();
+void watchpoint_display();
+void check_watchpoints();
+WP* get_wp(int number);
+
 #endif

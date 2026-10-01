@@ -23,7 +23,6 @@
 static int is_batch_mode = false;
 
 void init_regex();
-void init_wp_pool();
 
 /* We use the `readline' library to provide more flexibility to read from stdin. */
 static char* rl_gets() {
@@ -64,6 +63,12 @@ static int cmd_info(char *args);
 
 static int cmd_x(char *args);
 
+static int cmd_w(char *args);
+
+static int cmd_p(char *args);
+
+static int cmd_d(char *args);
+
 static struct {
   const char *name;
   const char *description;
@@ -78,6 +83,9 @@ static struct {
   { "si", "Step through the program for N instructions", cmd_si },
   { "info", "Print register state or watchpoint information", cmd_info },
   { "x", "Print the value of an address in memory for N 4 bytes (the address is given by an expression)", cmd_x },
+  { "w", "Set a watchpoint for an expression", cmd_w },
+  { "p", "Evaluate an expression and print its value", cmd_p },
+  { "d", "Delete a watchpoint by its number", cmd_d },
 
 };
 
@@ -133,6 +141,7 @@ static int cmd_info(char *args) {
   } else if (strcmp(arg, "r") == 0) {
     isa_reg_display();
   } else if (strcmp(arg, "w") == 0) {
+    watchpoint_display();
     return 0;
   } else {
     fprintf(stderr, "Unknown argument for info command: %s\n", arg);
@@ -158,17 +167,17 @@ static int cmd_x(char *args) {
     return 0;
   }
 
-  char *expr = strtok(NULL, " ");
-  if (expr == NULL) {
+  char *e = args + strlen(arg) + 1;
+  if (e == NULL) {
     fprintf(stderr, "Missing expression argument for x command\n");
     return 0;
   }
 
-  // we assume the expression is just a hex number 
-  int addr;
-  ret = sscanf(expr, "%x", &addr);
-  if (ret != 1) {
-    fprintf(stderr, "Invalid expression argument for x command: %s\n", expr);
+  bool success;
+  word_t addr = expr(e, &success);
+
+  if (!success) {
+    fprintf(stderr, "Invalid expression argument for x command: %s\n", e);
     return 0;
   }
 
@@ -195,6 +204,71 @@ static int cmd_x(char *args) {
     printf("\n");
   }
 
+  return 0;
+}
+
+// w EXPR : Set a watchpoint for an expression 
+static int cmd_w(char *args) {
+  char *e = args;
+
+  if (e == NULL) {
+    fprintf(stderr, "Missing expression argument for w command\n");
+    return 0;
+  }
+
+  // use watchpoint api to new watchpoint 
+  WP *wp = new_wp();
+  if (wp == NULL) {
+    fprintf(stderr, "No free watchpoints available\n");
+    return 0;
+  }
+
+  // copy the expression to the watchpoint
+  strncpy(wp->expr, e, sizeof(wp->expr));
+
+  // compute the value of current expression and save it 
+  bool success;
+  wp->last_value = expr(e, &success);
+
+  if (!success) {
+    fprintf(stderr, "Invalid expression: %s\n", e);
+    free_wp(wp);
+    return 0;
+  }
+
+  return 0;
+}
+
+static int cmd_p(char *args) {
+  char *e = args;
+
+  if (e == NULL) {
+    fprintf(stderr, "Missing expression argument for p command\n");
+    return 0;
+  }
+
+  bool success;
+  word_t val = expr(e, &success);
+
+  if (!success) {
+    fprintf(stderr, "Invalid expression: %s\n", e);
+    return 0;
+  }
+
+  printf("0x%08x\n", val);
+  return 0;
+}
+
+static int cmd_d(char *args) {
+  int number;
+  int ret = sscanf(args, "%d", &number);
+
+  if (ret != 1) {
+    fprintf(stderr, "Invalid watchpoint number: %s\n", args);
+    return 0;
+  }
+
+  free_wp(get_wp(number));
   return 0;
 }
 
