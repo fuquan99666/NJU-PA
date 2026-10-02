@@ -124,7 +124,9 @@ void check_watchpoints() {
       printf("Old value = 0x%08x\n", wp->last_value);
       printf("New value = 0x%08x\n", cur_value);
       wp->last_value = cur_value; // update the last value
-      nemu_state.state = NEMU_STOP; // stop the CPU
+      if (nemu_state.state == NEMU_RUNNING) {
+        nemu_state.state = NEMU_STOP; // stop the CPU, only when the state is running 
+      }
       break;
     }
     wp = wp->next;
