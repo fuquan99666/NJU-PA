@@ -47,4 +47,12 @@ $(clean-tools):
 clean-tools: $(clean-tools)
 clean-all: clean distclean clean-tools
 
-.PHONY: run gdb run-env clean-tools clean-all $(clean-tools)
+count:
+	@find $(NEMU_HOME) \( -name "*.c" -or -name "*.h" \) | xargs wc -l | tail -n 1
+
+count-actual:
+	@find $(NEMU_HOME) \( -name "*.c" -o -name "*.h" \) \
+		-exec grep -v '^[[:space:]]*$$' {} + \
+		| wc -l
+
+.PHONY: run gdb run-env clean-tools clean-all $(clean-tools) count count-actual
