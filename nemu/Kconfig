@@ -167,6 +167,14 @@ config WATCHPOINT
 	help 
 		Enable check watchpoints after each instruction execution.
 		Note that this will significantly reduce the performance of NEMU.
+
+config IRINGBUFFER
+	depends on TRACE
+	bool "Enable iringbuffer"
+	default n
+	help 
+		Use a ring buffer to save the recent few instructions.
+
 	
 
 choice

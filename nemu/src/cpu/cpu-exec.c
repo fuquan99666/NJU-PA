@@ -34,9 +34,13 @@ static bool g_print_step = false;
 void device_update();
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
+
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
+
+  IFDEF(CONFIG_IRINGBUFFER, iringbuf_write(_this->logbuf));
+
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
 
@@ -62,6 +66,9 @@ static void exec_once(Decode *s, vaddr_t pc) {
 #endif
     p += snprintf(p, 4, " %02x", inst[i]);
   }
+
+  // to make the disassembly output aligned, we need to fill the space 
+  // e.g. for x86, some short instructions have only 1 or 2 byte, and 1 byte = 3 char (2 hex + 1 space)
   int ilen_max = MUXDEF(CONFIG_ISA_x86, 8, 4);
   int space_len = ilen_max - ilen;
   if (space_len < 0) space_len = 0;
