@@ -33,13 +33,16 @@ static bool g_print_step = false;
 
 void device_update();
 
+void iringbuf_write(char *str);
+void iringbuf_display();
+
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 
 #ifdef CONFIG_ITRACE_COND
   if (ITRACE_COND) { log_write("%s\n", _this->logbuf); }
 #endif
 
-  IFDEF(CONFIG_IRINGBUFFER, iringbuf_write(_this->logbuf));
+  IFDEF(CONFIG_IRINGBUFFER, IFDEF(CONFIG_TARGET_NATIVE_ELF, iringbuf_write(_this->logbuf)));
 
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
@@ -134,6 +137,13 @@ void cpu_exec(uint64_t n) {
             ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
           nemu_state.halt_pc);
       // fall through
-    case NEMU_QUIT: statistic();
+    case NEMU_QUIT: statistic(); 
   }
+
+  // if the nemu.state is abort or bad trap, print the ring buffer 
+  #ifdef CONFIG_IRINGBUFFER
+  if (nemu_state.state == NEMU_ABORT || (nemu_state.state == NEMU_END && nemu_state.halt_ret != 0)) {
+    iringbuf_display();
+  }
+  #endif
 }
