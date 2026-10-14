@@ -17,6 +17,7 @@ int printf(const char *fmt, ...) {
   va_list ap;
   int d;
   char *s;
+  int total = 0;
 
   va_start(ap, fmt);
   while(*fmt) {
@@ -28,6 +29,7 @@ int printf(const char *fmt, ...) {
         s = va_arg(ap, char *);
         for (; *s; s++) {
           putch(*s);
+          total++;
         }
         break;
       case 'd':
@@ -36,6 +38,7 @@ int printf(const char *fmt, ...) {
         itoa(d, buf, 10);
         for (char *q = buf; *q; q++) {
           putch(*q);
+          total++;
         }
         break;
       default:
@@ -44,9 +47,11 @@ int printf(const char *fmt, ...) {
       }
     } else {
       putch(*fmt++);
+      total++;
     }
   }
   va_end(ap);
+  return total;
 }
 
 /**

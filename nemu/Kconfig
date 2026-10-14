@@ -175,6 +175,12 @@ config IRINGBUFFER
 	help 
 		Use a ring buffer to save the recent few instructions.
 
+config MTRACE
+	depends on TRACE
+	bool "Enable memory tracer"
+	default n
+	help 
+		Enable memory tracer to log each memory operation.
 	
 
 choice

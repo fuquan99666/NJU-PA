@@ -40,7 +40,7 @@ static const uint32_t img [] = {
   0x00000013,  // nop
   0x00028c23,  // sb  zero,24(t0)
   0x0102c503,  // lbu a0,16(t0)
-  0x00100513,  // addi a0,x0,1
+  0x00000513,  // addi a0,x0,0
   0x00100073,  // ebreak (used as nemu_trap)
   0xdeadbeef,  // some data
 };
