@@ -17,6 +17,7 @@
 #include <cpu/cpu.h>
 #include <cpu/ifetch.h>
 #include <cpu/decode.h>
+#include <log.h>
 
 #define R(i) gpr(i)
 #define Mr vaddr_read
@@ -100,8 +101,25 @@ static int decode_exec(Decode *s) {
   INSTPAT("0000000 ????? ????? 101 ????? 00100 11", srli   , I, R(rd) = src1 >> (imm & 0x1f));
   INSTPAT("0100000 ????? ????? 101 ????? 00100 11", srai   , I, R(rd) = (int32_t)src1 >> (imm & 0x1f));
 
-  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->snpc; s->dnpc = (src1 + imm) & ~1);
-  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm);
+  // The jal and jalr instructions are used to implement function calls and returns in riscv32.
+  INSTPAT("??????? ????? ????? 000 ????? 11001 11", jalr   , I, R(rd) = s->snpc; s->dnpc = (src1 + imm) & ~1; 
+          if (rd == 1) {
+            // the rd register is x1(ra), so it is call 
+            ftrace_write(s->pc, s->dnpc, true);
+          };
+
+          if (rd == 0 && BITS(s->isa.inst, 19, 15) == 1 && imm == 0) {
+            // the rd register is x0, and the rs1 register is x1(ra), and the imm is 0, so it is ret 
+            ftrace_write(s->pc, s->dnpc, false);
+          }
+        );
+  INSTPAT("??????? ????? ????? ??? ????? 11011 11", jal    , J, R(rd) = s->snpc; s->dnpc = s->pc + imm;
+      
+          if (rd == 1) {
+            // the rd register is x1(ra), so it is call
+            ftrace_write(s->pc, s->dnpc, true);
+          }
+        );
   
 
   INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, src2));

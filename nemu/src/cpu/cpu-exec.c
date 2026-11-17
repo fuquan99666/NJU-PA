@@ -35,6 +35,7 @@ void device_update();
 
 void iringbuf_write(char *str);
 void iringbuf_display();
+void ftrace_display();
 
 static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 
@@ -43,6 +44,16 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #endif
 
   IFDEF(CONFIG_IRINGBUFFER, IFDEF(CONFIG_TARGET_NATIVE_ELF, iringbuf_write(_this->logbuf)));
+
+  // Normally, we think a computer is a cold machine that executes instructions from the beginning of the program to the end.
+  // If that, we can't get any useful information of the program, e.g. some instructions are a small structured tool (function ?)
+  // To express the meaning of the program, we need to trace the function calling and returning.
+  // So, we need to make sense these things : firstly, for one pc, if it is a function calling instruction, if so, we need to 
+  // record the function calling pc and the function name (by analyze the symbol table). Secondly, if it is a function returning instruction,
+  // We need to return the right function (previously recorded) .
+
+  // Though we can get the function information by readelf, but to help us a better understanding of the elf file,
+  // just try to analyze the elf file by yourself ...
 
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
@@ -145,5 +156,9 @@ void cpu_exec(uint64_t n) {
   if (nemu_state.state == NEMU_ABORT || (nemu_state.state == NEMU_END && nemu_state.halt_ret != 0)) {
     iringbuf_display();
   }
+  #endif
+
+  #ifdef CONFIG_FTRACE
+  ftrace_display();
   #endif
 }

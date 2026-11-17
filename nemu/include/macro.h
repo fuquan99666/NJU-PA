@@ -107,4 +107,7 @@
   ({ reg##_T __io_param = (reg##_T) { __VA_ARGS__ }; \
     ioe_write(reg, &__io_param); })
 
+// for __attribute__((unused))
+#define UNUSED __attribute__((unused))
+
 #endif

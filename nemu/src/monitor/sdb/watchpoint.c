@@ -104,7 +104,7 @@ void watchpoint_display() {
 // after each instruction execution, we need to check whether the value of each watchpoint's expression has changed
 void check_watchpoints() {
   if (head == NULL) {
-    fprintf(stderr, "No watchpoints to check\n");
+    // fprintf(stderr, "No watchpoints to check\n");
     return;
   }
 

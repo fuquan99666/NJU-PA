@@ -181,7 +181,13 @@ config MTRACE
 	default n
 	help 
 		Enable memory tracer to log each memory operation.
-	
+
+config FTRACE
+  depends on TRACE
+  bool "Enable function calling tracer"
+  default n
+  help 
+    Enable function calling tracer to log each function call and return.
 
 choice
   prompt "Reference design"
